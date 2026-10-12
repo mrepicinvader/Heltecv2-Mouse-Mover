@@ -1,0 +1,24 @@
+#pragma once
+
+// User-adjustable settings
+#define DEVICE_NAME "Heltec BLE Mouse"
+
+#define BUTTON_PIN 0
+#define LED_PIN 25
+
+#define OLED_SDA 4
+#define OLED_SCL 15
+#define OLED_RST 16
+#define OLED_ADDRESS 0x3C
+
+#define MOUSE_MOVE_PIXELS 60
+#define MOUSE_MOVE_INTERVAL_MS 9000UL
+#define MOUSE_RETURN_DELAY_MS 250UL
+
+#define BUTTON_DEBOUNCE_MS 50UL
+#define MOVE_INDICATOR_MS 1000UL
+#define BUTTON_FEEDBACK_MS 800UL
+#define BOOT_SCREEN_MS 1200UL
+#define INSTRUCTION_SCREEN_MS 1800UL
+
+#define ENABLE_STATUS_LED true
