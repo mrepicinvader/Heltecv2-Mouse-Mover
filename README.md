@@ -52,3 +52,19 @@ Edit [include/config.h](include/config.h) to change `MOUSE_MOVE_PIXELS`, `MOUSE_
 If BLE does not pair, remove its old Windows entry, power-cycle the board, and retry near the computer. Use the 115200 baud serial monitor for connection diagnostics. If the OLED is blank, confirm this is V2 hardware and the fixed pins SDA=4, SCL=15, RESET=16; the firmware explicitly resets it and calls `Wire.begin(4, 15)`.
 
 **GPIO0 warning:** PRG is an ESP32 boot-strapping pin. Do not hold it while resetting or powering the board unless you intentionally want the bootloader. After a normal boot, it is read only as the runtime toggle button.
+
+## Release notes
+
+### v1.0.0 - Initial release
+
+- Initial firmware for the original Heltec WiFi LoRa 32 V2 ESP32 board
+- Turns the board into a Bluetooth LE HID mouse named `Heltec BLE Mouse`
+- No Windows driver or companion app required after flashing
+- PRG button toggles mouse motion on and off with debounce and status feedback
+- OLED display reports connection and motion state in a simple, visible format
+- Optional status LED shows whether the board is off, armed, or active
+- Uses a configurable movement pattern that sends periodic X-axis mouse motion while connected
+- Keeps the LoRa radio uninitialized and uses the V2-specific OLED pin mapping
+- Includes setup, pairing, and troubleshooting guidance for Windows users
+
+This is the initial release baseline for the project and is intended for the Heltec WiFi LoRa 32 V2 hardware only.
