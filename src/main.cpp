@@ -1,13 +1,21 @@
 #include <Arduino.h>
+#include "config.h"
+#if ENABLE_RGB_STATUS_LED
+#include <esp32-hal-rgb-led.h>
+#include <math.h>
+#endif
+#if ENABLE_OLED
 #include <Wire.h>
 #include <U8g2lib.h>
+#endif
 #include <BleMouse.h>
-#include "config.h"
 
 // The BLE library supplies the standard HID mouse descriptor, advertising,
 // pairing/bonding support, and reconnect handling for the ESP32 Arduino stack.
-BleMouse bleMouse(DEVICE_NAME, "Heltec", 100);
+BleMouse bleMouse(DEVICE_NAME, DEVICE_MANUFACTURER, 100);
+#if ENABLE_OLED
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C display(U8G2_R0, U8X8_PIN_NONE);
+#endif
 
 bool bleConnected = false;
 bool mouseEnabled = false;
@@ -29,9 +37,15 @@ Feedback feedback = Feedback::None;
 void markDisplayDirty() { displayDirty = true; }
 
 void initializeDisplay() {
+#if ENABLE_OLED
+#ifdef OLED_POWER_PIN
+  pinMode(OLED_POWER_PIN, OUTPUT);
+  digitalWrite(OLED_POWER_PIN, LOW);  // Enable the Heltec V3/V3.2 Vext rail.
+  delay(10);  // Let OLED power settle before resetting it.
+#endif
   pinMode(OLED_RST, OUTPUT);
   digitalWrite(OLED_RST, LOW);
-  delay(20);  // Hardware reset pulse required by the Heltec V2 OLED.
+  delay(20);  // Hardware reset pulse required by the Heltec OLED.
   digitalWrite(OLED_RST, HIGH);
 
   Wire.begin(OLED_SDA, OLED_SCL);
@@ -39,6 +53,7 @@ void initializeDisplay() {
   display.begin();
   display.setFont(u8g2_font_6x12_tf);
   Serial.println("[OLED] initialized");
+#endif
 }
 
 void initializeBluetooth() {
@@ -109,7 +124,9 @@ void updateMouseMovement() {
   lastMovementTime = now;
 }
 
+#if ENABLE_OLED
 void drawText(uint8_t x, uint8_t y, const char *text) { display.drawStr(x, y, text); }
+#endif
 
 void updateDisplay() {
   const uint32_t now = millis();
@@ -124,19 +141,20 @@ void updateDisplay() {
   if (!displayDirty) return;
   displayDirty = false;
 
+#if ENABLE_OLED
   display.clearBuffer();
   if ((uint32_t)(now - bootTime) < BOOT_SCREEN_MS) {
-    drawText(0, 22, "Heltec BLE Mouse");
+    drawText(0, 22, DEVICE_NAME);
     drawText(0, 42, "Starting...");
   } else if ((uint32_t)(now - bootTime) < BOOT_SCREEN_MS + INSTRUCTION_SCREEN_MS) {
     drawText(0, 22, "BLE advertising...");
-    drawText(0, 42, "Press PRG");
+    drawText(0, 42, "Press " BUTTON_LABEL);
     drawText(0, 57, "to enable");
   } else if (feedback != Feedback::None) {
     drawText(0, 25, "Mouse movement");
     drawText(0, 48, feedback == Feedback::Enabled ? "ENABLED" : "DISABLED");
   } else {
-    drawText(0, 12, "HELTEC BLE MOUSE");
+    drawText(0, 12, DEVICE_NAME);
     drawText(0, 30, "Bluetooth:");
     drawText(70, 30, bleConnected ? "CONNECTED" : "WAITING...");
     drawText(0, 48, "Mouse:");
@@ -149,9 +167,32 @@ void updateDisplay() {
     if (activityUntil != 0) drawText(78, 63, "NOW");
   }
   display.sendBuffer();
+#endif
 }
 
 void updateStatusLed() {
+#if ENABLE_RGB_STATUS_LED
+  static bool initialized = false;
+  static uint8_t lastRed = 0;
+  static uint8_t lastGreen = 0;
+  const bool active = mouseEnabled && bleConnected;
+  const uint8_t red = active ? 0 : RGB_STATUS_LED_BRIGHTNESS;
+  uint8_t green = 0;
+  if (active) {
+    // A slow breathing cycle without blocking button or BLE updates.
+    const float phase = (millis() % RGB_STATUS_LED_PULSE_MS) /
+                        static_cast<float>(RGB_STATUS_LED_PULSE_MS);
+    green = static_cast<uint8_t>(RGB_STATUS_LED_BRIGHTNESS *
+                                (0.5f - 0.5f * cosf(phase * 6.2831853f)) + 0.5f);
+  }
+  // The addressable LED retains its color; only send changed channel values.
+  if (!initialized || red != lastRed || green != lastGreen) {
+    neopixelWrite(RGB_STATUS_LED_PIN, red, green, 0);
+    lastRed = red;
+    lastGreen = green;
+    initialized = true;
+  }
+#endif
 #if ENABLE_STATUS_LED
   static bool lastLed = false;
   bool ledOn = false;
@@ -168,8 +209,11 @@ void updateStatusLed() {
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("[BOOT] Heltec BLE Mouse");
+  Serial.println("[BOOT] " DEVICE_NAME);
   pinMode(BUTTON_PIN, INPUT_PULLUP);
+#if ENABLE_RGB_STATUS_LED
+  updateStatusLed();  // Show inactive red while Bluetooth starts.
+#endif
 #if ENABLE_STATUS_LED
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
